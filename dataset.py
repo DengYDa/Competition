@@ -70,7 +70,7 @@ class FaceDataset(Dataset):
         image = Image.open(image_path).convert('RGB')
         image = self.transforms(image)
         labels = torch.from_numpy(np.array(labels))
-        return image, labels
+        return image, labels[0].float(), labels[1].long(), labels[2].long(), labels[3].long(), labels[4].long(), labels[5].long(), labels[6].long(), labels[7].long()
 
     def __len__(self):
         return len(self.imgs_path)
@@ -79,8 +79,7 @@ class FaceDataset(Dataset):
 if __name__ == "__main__":
     dataset = FaceDataset("home/data/2792")
     loader = DataLoader(dataset, batch_size=1)
-    for x, y in loader:
-        print(x.shape)
-        print(y.shape)
-
+    for images, age_target, gender_target, glasses_target, race_target, emotion_target, mask_target, hat_target, whiskers_target in loader:
+        print(images.shape)
+        print(gender_target)
 

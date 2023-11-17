@@ -12,6 +12,7 @@ import time
 import numpy as np
 import random
 import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
 # Logging
 import logging
 
@@ -49,7 +50,7 @@ val_loader = torch.utils.data.DataLoader(
 def f1_score_com(x,target):
     res = []
     for i in x:
-        max_idx = max_idx = torch.argmax(t, dim=1)
+        max_idx = max_idx = torch.argmax(x, dim=1)
         output = max_idx.unsqueeze(1)
         res.append(output)
     pred = torch.cat(res,dim = 1) - 1
@@ -66,18 +67,26 @@ def train(model,config,train_loader,val_loader,optimizer):
     # Training
     model.train()
     train_loss = 0.0
-    for i, (images, labels) in enumerate(train_loader):
+    for images, age_target, gender_target, glasses_target, race_target, emotion_target, mask_target, hat_target, whiskers_target in train_loader:
         optimizer.zero_grad()
-        images,labels = images.to(config['device']),labels.to(config['device'])
-        age, gender, glasses, race, emotion, mask, hat, whiskers = model(images)
-        loss_age = F.mse_loss(age, labels[0])
-        loss_gender = F.cross_entropy(gender,labels[1])
-        loss_glasses = F.cross_entropy(glasses,labels[2])
-        loss_race = F.cross_entropy(race,labels[3])
-        loss_emotion = F.cross_entropy(emotion,labels[4])
-        loss_mask = F.cross_entropy(mask,labels[5])
-        loss_hat = F.cross_entropy(hat,labels[6])
-        loss_whiskers = F.cross_entropy(whiskers,labels[7])
+        images, age_target, gender_target, glasses_target, race_target, emotion_target, mask_target, hat_target, whiskers_target = images.to(config['device']), \
+            age_target.to(config['device']), gender_target.to(config['device']), \
+            glasses_target.to(config['device']), race_target.to(config['device']), emotion_target.to(config['device']), \
+            mask_target.to(config['device']), hat_target.to(
+                config['device']), whiskers_target.to(config['device'])
+
+        age, gender, glasses, race, emotion, mask, hat, whiskers = model(
+            images)
+        gender, glasses, race, emotion, mask, hat, whiskers = map(lambda x: F.softmax(
+            x, dim=1), [gender, glasses, race, emotion, mask, hat, whiskers])
+        loss_age = F.mse_loss(age, age_target.unsqueeze(1))
+        loss_gender = F.cross_entropy(gender, gender_target)
+        loss_glasses = F.cross_entropy(glasses, glasses_target)
+        loss_race = F.cross_entropy(race, race_target)
+        loss_emotion = F.cross_entropy(emotion, emotion_target)
+        loss_mask = F.cross_entropy(mask, mask_target)
+        loss_hat = F.cross_entropy(hat, hat_target)
+        loss_whiskers = F.cross_entropy(whiskers, whiskers_target)
         loss = loss_age + loss_gender + loss_glasses + loss_race + loss_emotion + loss_mask + loss_hat + loss_whiskers
         loss.backward()
         optimizer.step()
@@ -87,19 +96,28 @@ def train(model,config,train_loader,val_loader,optimizer):
     model.eval()
     val_loss = 0.0
     with torch.no_grad():
-        for images, labels in val_loader:
-            images,labels = iamges.to(config['device']),labels.to(config['device'])
-            age, gender, glasses, race, emotion, mask, hat, whiskers = model(images)
-            loss_age = F.mse_loss(age, labels[0])
-            loss_gender = F.cross_entropy(gender,labels[1])
-            loss_glasses = F.cross_entropy(glasses,labels[2])
-            loss_race = F.cross_entropy(race,labels[3])
-            loss_emotion = F.cross_entropy(emotion,labels[4])
-            loss_mask = F.cross_entropy(mask,labels[5])
-            loss_hat = F.cross_entropy(hat,labels[6])
-            loss_whiskers = F.cross_entropy(whiskers,labels[7])
+        for images, age_target, gender_target, glasses_target, race_target, emotion_target, mask_target, hat_target, whiskers_target in val_loader:
+            images, age_target, gender_target, glasses_target, race_target, emotion_target, mask_target, hat_target, whiskers_target = images.to(config['device']), \
+                age_target.to(config['device']), gender_target.to(config['device']), \
+                glasses_target.to(config['device']), race_target.to(config['device']), emotion_target.to(config['device']), \
+                mask_target.to(config['device']), hat_target.to(
+                    config['device']), whiskers_target.to(config['device'])
+            age, gender, glasses, race, emotion, mask, hat, whiskers = model(
+                images)
+            gender, glasses, race, emotion, mask, hat, whiskers = map(lambda x: F.softmax(
+                x, dim=1), [gender, glasses, race, emotion, mask, hat, whiskers])
+
+            loss_age = F.mse_loss(age, age_target.unsqueeze(1))
+            loss_gender = F.cross_entropy(gender, gender_target)
+            loss_glasses = F.cross_entropy(glasses, glasses_target)
+            loss_race = F.cross_entropy(race, race_target)
+            loss_emotion = F.cross_entropy(emotion, emotion_target)
+            loss_mask = F.cross_entropy(mask, mask_target)
+            loss_hat = F.cross_entropy(hat, hat_target)
+            loss_whiskers = F.cross_entropy(whiskers, whiskers_target)
             loss = loss_age + loss_gender + loss_glasses + loss_race + loss_emotion + loss_mask + loss_hat + loss_whiskers
-            f1 = f1_score_com(labels[1:],[gender, glasses, race, emotion, mask, hat, whiskers])
+            f1 = f1_score_com([gender_target, glasses_target, race_target, emotion_target, mask_target,
+                              hat_target, whiskers_target], [gender, glasses, race, emotion, mask, hat, whiskers])
         val_loss += loss.item()
         
     if f1 > f1_best:

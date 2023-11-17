@@ -1,6 +1,6 @@
 from torch import nn
 from torchvision import models
-
+import torch.nn.functional as F
 
 class Sub_Base(nn.Module):
     
@@ -20,9 +20,8 @@ class Sub_Base(nn.Module):
         x = self.act_fn(x)
         x = self.dropout(x)
         x = self.to_predict(x)
-        output = nn.softmax(x) if self.target_class!=1 else x
-        
-        return output
+        return x
+
         
 class ResNet50_pretrained(nn.Module):
     
